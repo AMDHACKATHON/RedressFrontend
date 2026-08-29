@@ -77,6 +77,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     // Extract country, sector, and company; then search the web in parallel for
     // (a) the relevant regulatory body and (b) the company's public complaint email.
     let searchResults = '';
+    let regulatorCandidates: { name: string, contact: string }[] = [];
     let companyContactSnippets = '';
     let candidateEmails: string[] = [];
     try {
@@ -87,14 +88,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   "company": "the exact name of the organization being complained about"
 }`;
 
-      const extractionResponse = await fetch(process.env.AMD_API_URL!, {
+      const extractionResponse = await fetch(process.env.GROQ_API_URL!, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${process.env.AMD_API_KEY}`,
+          'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          model: 'llama-3.3-70b-versatile',
+          model: 'openai/gpt-oss-20b',
           messages: [
             { role: 'system', content: extractionPrompt },
             { role: 'user', content: messageContext }
@@ -112,12 +113,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         const [regulator, companyContact] = await Promise.all([
           extracted.country && extracted.sector
             ? searchRegulator(extracted.country, extracted.sector)
-            : Promise.resolve(''),
+            : Promise.resolve({ snippets: '', candidates: [] }),
           extracted.company
             ? searchCompanyContact(extracted.company, extracted.country)
             : Promise.resolve({ snippets: '', candidateEmails: [] as string[] }),
         ]);
-        searchResults = regulator;
+        searchResults = regulator.snippets;
+        regulatorCandidates = regulator.candidates;
         companyContactSnippets = companyContact.snippets;
         candidateEmails = companyContact.candidateEmails;
       }
@@ -186,7 +188,12 @@ Also identify:
 ${searchResults ? `Additional regulatory information from web search:
 ${searchResults}
 
-Use this information to ensure the regulator name, contact details, and filing channel are accurate.` : ''}
+Use this information to ensure the regulator name, contact details, and filing channel are accurate.
+
+${regulatorCandidates.length > 0 ? `Verified regulator candidates extracted from live web search results:
+${regulatorCandidates.map((c, i) => `${i + 1}. Name: "${c.name}", Contact: "${c.contact}"`).join('\n')}
+
+Choose ONE of the regulator candidates above. Use the exact name and contact verbatim.` : `No structured regulator candidates were found.`}` : ''}
 
 ${candidateEmails.length > 0 ? `Verified email candidates extracted from live web search results for this company (ranked by likely relevance):
 ${candidateEmails.map((e, i) => `${i + 1}. ${e}`).join('\n')}
@@ -206,8 +213,8 @@ Respond ONLY with a valid JSON object in this exact format and nothing else:
   "recipient_contact": ${candidateEmails.length > 0 ? `"<one of the candidate emails listed above, verbatim — or null if none of them look right>"` : `null`},
   "channel": "email",
   "regulator": {
-    "name": "regulator name",
-    "contact": "regulator contact",
+    "name": ${regulatorCandidates.length > 0 ? `"<one of the candidate names listed above, verbatim — or null>"` : `null`},
+    "contact": ${regulatorCandidates.length > 0 ? `"<the corresponding candidate contact, verbatim — or null>"` : `null`},
     "country": "country"
   }
 }
@@ -215,18 +222,22 @@ Respond ONLY with a valid JSON object in this exact format and nothing else:
 STRICT RULE FOR "recipient_contact":
 - The value MUST be either null or one of the verified email candidates listed above.
 - NEVER invent, guess, paraphrase, or modify an email address. Do not derive an email from a company name (e.g. "company name → support@company.com" is FORBIDDEN unless that exact address appears in the candidate list).
-- When in doubt, return null. A missing email is far better than a wrong one.`;
+- When in doubt, return null. A missing email is far better than a wrong one.
+
+STRICT RULE FOR "regulator":
+- If regulator candidates are provided, the "name" and "contact" MUST exactly match one of the candidates, or be null.
+- NEVER invent a regulator that is not in the candidate list.`;
 
     let aiResponseContent = '';
     try {
-      const response = await fetch(process.env.AMD_API_URL!, {
+      const response = await fetch(process.env.GROQ_API_URL!, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${process.env.AMD_API_KEY}`,
+          'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          model: 'llama-3.3-70b-versatile',
+          model: 'openai/gpt-oss-20b',
           messages: [
             { role: 'system', content: systemPrompt },
             { role: 'user', content: `Conversation history:\n${messageContext}` }
@@ -238,13 +249,13 @@ STRICT RULE FOR "recipient_contact":
       });
 
       if (!response.ok) {
-        throw new Error(`AMD API error: ${response.statusText}`);
+        throw new Error(`Groq API error: ${response.statusText}`);
       }
 
       const data = await response.json();
       aiResponseContent = data.choices[0].message.content;
     } catch (error) {
-      console.error('AMD API Call failed:', error);
+      console.error('Groq API Call failed:', error);
       return NextResponse.json({ error: 'Agent unavailable. Please try again.', code: 500 }, { status: 500 });
     }
 
@@ -285,6 +296,34 @@ STRICT RULE FOR "recipient_contact":
       return trimmed;
     })();
 
+    let regulatorName = parsedLetter.regulator?.name || null;
+    let regulatorContact = parsedLetter.regulator?.contact || null;
+    let regulatorCountry = parsedLetter.regulator?.country || null;
+    let regulatorVerified = true;
+
+    if (regulatorCandidates.length > 0) {
+      const isVerified = regulatorCandidates.some(c => 
+        c.name === regulatorName && c.contact === regulatorContact
+      );
+      if (!isVerified) {
+        console.warn('regulator does not match any candidate, dropping:', { name: regulatorName, contact: regulatorContact }, 'candidates:', regulatorCandidates);
+        regulatorName = null;
+        regulatorContact = null;
+        regulatorCountry = null;
+        regulatorVerified = false;
+      }
+    } else {
+      // If there were no candidates but LLM guessed something, we mark it unverified
+      // and keep or drop it? The requirement says:
+      // "If it doesn't match (hallucinated / not grounded), set regulator to null"
+      // If we have NO candidates, any answer is not grounded in structured candidates.
+      console.warn('no regulator candidates, dropping LLM guess.');
+      regulatorName = null;
+      regulatorContact = null;
+      regulatorCountry = null;
+      regulatorVerified = false;
+    }
+
     // Save to MongoDB
     const letter = await Letter.create({
       complaintId: id,
@@ -292,9 +331,10 @@ STRICT RULE FOR "recipient_contact":
       recipient: parsedLetter.recipient,
       recipientContact,
       channel: parsedLetter.channel,
-      regulatorName: parsedLetter.regulator.name,
-      regulatorContact: parsedLetter.regulator.contact,
-      regulatorCountry: parsedLetter.regulator.country
+      regulatorName,
+      regulatorContact,
+      regulatorCountry,
+      regulatorVerified
     });
 
     // Drop a confirmation message into the chat so the agent acknowledges the letter

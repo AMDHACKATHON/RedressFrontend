@@ -176,25 +176,25 @@ async function main() {
   console.log("=========================================\n");
 
   for (const tc of TEST_CASES) {
-    console.log(\`Evaluating Case \${tc.id}: \${tc.country} / \${tc.sector}\`);
-    console.log(\`Description: \${tc.description}\`);
+    console.log(`Evaluating Case ${tc.id}: ${tc.country} / ${tc.sector}`);
+    console.log(`Description: ${tc.description}`);
     
-    console.log("\\n-- Running Baseline --");
+    console.log("\n-- Running Baseline --");
     const baselineResult = await runBaseline(tc.description);
     if (baselineResult) {
-      console.log(\`   Baseline Regulator: \${baselineResult.regulator?.name || 'N/A'}\`);
-      console.log(\`   Baseline Contact:   \${baselineResult.regulator?.contact || 'N/A'}\`);
+      console.log(`   Baseline Regulator: ${baselineResult.regulator?.name || 'N/A'}`);
+      console.log(`   Baseline Contact:   ${baselineResult.regulator?.contact || 'N/A'}`);
     }
 
-    console.log("\\n-- Running Verified Redress --");
+    console.log("\n-- Running Verified Redress --");
     const redressResult = await runVerifiedRedress(tc);
     if (redressResult) {
-      console.log(\`   Candidates Found:   \${redressResult.candidatesCount}\`);
-      console.log(\`   Redress Regulator:  \${redressResult.regulatorName || 'NULL (Unverified)'}\`);
-      console.log(\`   Redress Contact:    \${redressResult.regulatorContact || 'NULL (Unverified)'}\`);
-      console.log(\`   Is Verified?:       \${redressResult.regulatorVerified}\`);
+      console.log(`   Candidates Found:   ${redressResult.candidatesCount}`);
+      console.log(`   Redress Regulator:  ${redressResult.regulatorName || 'NULL (Unverified)'}`);
+      console.log(`   Redress Contact:    ${redressResult.regulatorContact || 'NULL (Unverified)'}`);
+      console.log(`   Is Verified?:       ${redressResult.regulatorVerified}`);
     }
-    console.log("\\n-----------------------------------------\\n");
+    console.log("\n-----------------------------------------\n");
   }
   
   console.log("Evaluation complete.");

@@ -7,9 +7,9 @@ import Letter from '@/lib/models/Letter';
 import User from '@/lib/models/User';
 import { applySenderName } from '@/lib/letter-utils';
 
-const AMD_API_URL = process.env.AMD_API_URL;
-const AMD_API_KEY = process.env.AMD_API_KEY;
-const MODEL = 'llama-3.3-70b-versatile';
+const GROQ_API_URL = process.env.GROQ_API_URL;
+const GROQ_API_KEY = process.env.GROQ_API_KEY;
+const MODEL = 'openai/gpt-oss-20b';
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -98,11 +98,11 @@ Return ONLY a JSON object in this format:
 For "recipientContact": only include a real email address you are confident about. If unsure, return null — do not invent emails.
 No markdown, no explanation. Pure JSON only.`;
 
-    const response = await fetch(AMD_API_URL!, {
+    const response = await fetch(GROQ_API_URL!, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${AMD_API_KEY}`,
+        'Authorization': `Bearer ${GROQ_API_KEY}`,
       },
       body: JSON.stringify({
         model: MODEL,
@@ -113,7 +113,7 @@ No markdown, no explanation. Pure JSON only.`;
     });
 
     if (!response.ok) {
-      throw new Error('Failed to generate letter from AI');
+      throw new Error(`Groq API error: ${response.statusText}`);
     }
 
     const data = await response.json();

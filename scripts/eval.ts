@@ -133,7 +133,10 @@ STRICT RULE FOR "regulator":
       })
     });
 
-    if (!response.ok) throw new Error(`Groq API error: ${response.statusText}`);
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Groq API error: ${response.status} ${response.statusText}\n${errorText}`);
+    }
     
     const data = await response.json();
     const aiResponseContent = data.choices[0].message.content;
@@ -195,6 +198,8 @@ async function main() {
       console.log(`   Is Verified?:       ${redressResult.regulatorVerified}`);
     }
     console.log("\n-----------------------------------------\n");
+    // 4 second delay between cases to avoid rate limiting
+    await new Promise(resolve => setTimeout(resolve, 4000));
   }
   
   console.log("Evaluation complete.");

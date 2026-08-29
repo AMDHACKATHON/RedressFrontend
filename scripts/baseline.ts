@@ -45,7 +45,8 @@ export async function runBaseline(complaintDescription: string) {
     });
 
     if (!response.ok) {
-      throw new Error(`Groq API error: ${response.statusText}`);
+      const errorText = await response.text();
+      throw new Error(`Groq API error: ${response.status} ${response.statusText}\n${errorText}`);
     }
 
     const data = await response.json();

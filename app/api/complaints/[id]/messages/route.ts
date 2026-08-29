@@ -7,18 +7,18 @@ import Letter from '@/lib/models/Letter';
 import User from '@/lib/models/User';
 import { applySenderName } from '@/lib/letter-utils';
 
-const AMD_API_URL = process.env.AMD_API_URL!;
-const AMD_API_KEY = process.env.AMD_API_KEY!;
-const MODEL = 'llama-3.3-70b-versatile';
+const GROQ_API_URL = process.env.GROQ_API_URL!;
+const GROQ_API_KEY = process.env.GROQ_API_KEY!;
+const MODEL = 'openai/gpt-oss-20b';
 
 async function callLLM(
   messages: { role: string; content: string }[],
   opts: { jsonMode?: boolean; temperature?: number; maxTokens?: number } = {}
 ): Promise<string> {
-  const response = await fetch(AMD_API_URL, {
+  const response = await fetch(GROQ_API_URL, {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${AMD_API_KEY}`,
+      'Authorization': `Bearer ${GROQ_API_KEY}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
@@ -30,7 +30,9 @@ async function callLLM(
     }),
   });
   if (!response.ok) {
-    throw new Error(`LLM error: ${response.statusText}`);
+    const errorData = await response.json().catch(() => ({}));
+    console.error('Groq API Error:', errorData);
+    throw new Error(`Groq API Error: ${response.statusText}`);
   }
   const data = await response.json();
   return data.choices[0].message.content as string;

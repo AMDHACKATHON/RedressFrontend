@@ -4,9 +4,9 @@ import { connectDB } from '@/lib/mongodb';
 import Complaint from '@/lib/models/Complaint';
 import Message from '@/lib/models/Message';
 
-const AMD_API_URL = process.env.AMD_API_URL;
-const AMD_API_KEY = process.env.AMD_API_KEY;
-const MODEL = 'llama-3.3-70b-versatile';
+const GROQ_API_URL = process.env.GROQ_API_URL;
+const GROQ_API_KEY = process.env.GROQ_API_KEY;
+const MODEL = 'openai/gpt-oss-20b';
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -67,17 +67,17 @@ Otherwise respond normally with no JSON block.`;
       systemPrompt = `You are Redress. An escalation letter has been sent to the regulator. Answer questions about it helpfully. No JSON signals needed.`;
     }
 
-    // Call AMD API
+    // Call GROQ API
     const messages = [
       { role: "system", content: systemPrompt },
       ...history.map(m => ({ role: m.role, content: m.content }))
     ];
 
-    const response = await fetch(AMD_API_URL!, {
+    const response = await fetch(GROQ_API_URL!, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${AMD_API_KEY}`,
+        'Authorization': `Bearer ${GROQ_API_KEY}`,
       },
       body: JSON.stringify({
         model: MODEL,
@@ -88,8 +88,8 @@ Otherwise respond normally with no JSON block.`;
 
     if (!response.ok) {
       const errorData = await response.json();
-      console.error('AMD API Error:', errorData);
-      throw new Error('Failed to fetch from AI agent');
+      console.error('Groq API Error:', errorData);
+      return NextResponse.json({ error: `Groq API Error: ${response.statusText}` }, { status: 502 });
     }
 
     const data = await response.json();

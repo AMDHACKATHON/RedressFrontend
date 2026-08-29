@@ -78,11 +78,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     // Search for additional regulatory info
     let searchResults = '';
+    let regulatorCandidates: { name: string, contact: string }[] = [];
     try {
       const country = originalLetter?.regulatorCountry || complaint.country;
       const sector = complaint.complaintType || 'consumer';
       if (country && sector) {
-        searchResults = await searchRegulator(country, sector);
+        const regulator = await searchRegulator(country, sector);
+        searchResults = regulator.snippets;
+        regulatorCandidates = regulator.candidates;
       }
     } catch (e) {
       console.error('Search failed, proceeding without it:', e);
@@ -139,30 +142,39 @@ Also provide step-by-step filing instructions for submitting to this regulator.
 ${searchResults ? `Additional regulatory information from web search:
 ${searchResults}
 
-Use this information to ensure the regulator name, contact details, and filing instructions are accurate.` : ''}
+Use this information to ensure the regulator name, contact details, and filing instructions are accurate.
+
+${regulatorCandidates.length > 0 ? `Verified regulator candidates extracted from live web search results:
+${regulatorCandidates.map((c, i) => `${i + 1}. Name: "${c.name}", Contact: "${c.contact}"`).join('\n')}
+
+Choose ONE of the regulator candidates above. Use the exact name and contact verbatim.` : `No structured regulator candidates were found.`}` : ''}
 
 Respond ONLY with a valid JSON object in this exact format and nothing else:
 {
   "escalation_letter": "full escalation letter text here",
   "regulator": {
-    "name": "regulator name",
-    "contact": "regulator contact email or address",
+    "name": ${regulatorCandidates.length > 0 ? `"<one of the candidate names listed above, verbatim — or null>"` : `null`},
+    "contact": ${regulatorCandidates.length > 0 ? `"<the corresponding candidate contact, verbatim — or null>"` : `null`},
     "filing_instructions": "step by step instructions on how to file"
   }
-}`;
+}
+
+STRICT RULE FOR "regulator":
+- If regulator candidates are provided, the "name" and "contact" MUST exactly match one of the candidates, or be null.
+- NEVER invent a regulator that is not in the candidate list.`;
 
     const userContent = `Original Complaint Letter:\n${originalLetter?.letter}\n\nConversation history:\n${messageContext}`;
 
     let aiResponseContent = '';
     try {
-      const response = await fetch(process.env.AMD_API_URL!, {
+      const response = await fetch(process.env.GROQ_API_URL!, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${process.env.AMD_API_KEY}`,
+          'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          model: 'llama-3.3-70b-versatile',
+          model: 'openai/gpt-oss-20b',
           messages: [
             { role: 'system', content: systemPrompt },
             { role: 'user', content: userContent }
@@ -174,13 +186,13 @@ Respond ONLY with a valid JSON object in this exact format and nothing else:
       });
 
       if (!response.ok) {
-        throw new Error(`AMD API error: ${response.statusText}`);
+        throw new Error(`Groq API error: ${response.statusText}`);
       }
 
       const data = await response.json();
       aiResponseContent = data.choices[0].message.content;
     } catch (error) {
-      console.error('AMD API Call failed:', error);
+      console.error('Groq API Call failed:', error);
       return NextResponse.json({ error: 'Agent unavailable. Please try again.', code: 500 }, { status: 500 });
     }
 
@@ -193,13 +205,38 @@ Respond ONLY with a valid JSON object in this exact format and nothing else:
       return NextResponse.json({ error: 'Failed to generate a valid escalation letter structure.', code: 500 }, { status: 500 });
     }
 
+    let regulatorName = parsedEscalation.regulator?.name || null;
+    let regulatorContact = parsedEscalation.regulator?.contact || null;
+    let filingInstructions = parsedEscalation.regulator?.filing_instructions || null;
+    let regulatorVerified = true;
+
+    if (regulatorCandidates.length > 0) {
+      const isVerified = regulatorCandidates.some(c => 
+        c.name === regulatorName && c.contact === regulatorContact
+      );
+      if (!isVerified) {
+        console.warn('regulator does not match any candidate, dropping:', { name: regulatorName, contact: regulatorContact }, 'candidates:', regulatorCandidates);
+        regulatorName = null;
+        regulatorContact = null;
+        filingInstructions = null;
+        regulatorVerified = false;
+      }
+    } else {
+      console.warn('no regulator candidates, dropping LLM guess.');
+      regulatorName = null;
+      regulatorContact = null;
+      filingInstructions = null;
+      regulatorVerified = false;
+    }
+
     // Save to MongoDB
     const escalation = await EscalationLetter.create({
       complaintId: id,
       escalationLetter: applySenderName(parsedEscalation.escalation_letter, senderName),
-      regulatorName: parsedEscalation.regulator.name,
-      regulatorContact: parsedEscalation.regulator.contact,
-      filingInstructions: parsedEscalation.regulator.filing_instructions
+      regulatorName,
+      regulatorContact,
+      filingInstructions,
+      regulatorVerified
     });
 
     // Update complaint

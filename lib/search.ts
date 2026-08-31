@@ -16,13 +16,21 @@ const PRIORITY_KEYWORDS = [
   'info',
 ];
 
+export interface RegulatorSearch {
+  snippets: string;
+  candidates: {
+    name: string;
+    contact: string;
+  }[];
+}
+
 /**
  * Searches for regulatory body information based on country and sector.
  * @param country The country to search in.
  * @param sector The industry sector (e.g., banking, telecom).
- * @returns A string containing snippets from the top search results.
+ * @returns A string containing snippets from the top search results and structured candidates.
  */
-export async function searchRegulator(country: string, sector: string): Promise<string> {
+export async function searchRegulator(country: string, sector: string): Promise<RegulatorSearch> {
   try {
     const query = `"${country} ${sector} regulatory body consumer complaint contact email"`;
     const response = await tvly.search(query, {
@@ -31,15 +39,24 @@ export async function searchRegulator(country: string, sector: string): Promise<
     });
 
     if (!response.results || response.results.length === 0) {
-      return '';
+      return { snippets: '', candidates: [] };
     }
 
-    return response.results
+    const snippets = response.results
       .map((result: any) => result.content)
       .join('\n\n');
+
+    const candidates = response.results
+      .filter((r: any) => r.title && r.url)
+      .map((r: any) => ({
+        name: r.title,
+        contact: r.url,
+      }));
+
+    return { snippets, candidates };
   } catch (error) {
     console.error('Tavily search failed:', error);
-    return '';
+    return { snippets: '', candidates: [] };
   }
 }
 

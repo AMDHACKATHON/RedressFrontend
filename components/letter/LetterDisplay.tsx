@@ -7,11 +7,12 @@ interface LetterDisplayProps {
   recipientContact?: string | null;
   channel: string;
   regulator: {
-    name: string;
-    contact: string;
-    country?: string;
-    filing_instructions?: string;
-  };
+    name?: string | null;
+    contact?: string | null;
+    country?: string | null;
+    filing_instructions?: string | null;
+  } | null;
+  regulatorVerified?: boolean;
   /** Subject line used by the Send-via-Gmail button. Defaults to the title. */
   emailSubject?: string;
 }
@@ -23,6 +24,7 @@ export default function LetterDisplay({
   recipientContact,
   channel,
   regulator,
+  regulatorVerified = true,
   emailSubject,
 }: LetterDisplayProps) {
   const channelLower = channel.toLowerCase();
@@ -75,22 +77,30 @@ export default function LetterDisplay({
             <p className="text-[9px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">
               Regulator
             </p>
-            <p className="text-xs font-semibold text-slate-900 dark:text-white leading-snug break-words">
-              {regulator.name}
-            </p>
-            <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-snug break-words">
-              {regulator.contact}
-            </p>
-            {regulator.country && (
-              <p className="text-[11px] text-slate-500 dark:text-slate-500">
-                {regulator.country}
-              </p>
+            {!regulatorVerified || !regulator ? (
+              <div className="bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-300 p-2 rounded text-[11px] leading-snug">
+                We couldn't confidently verify this regulator — please double check before sending.
+              </div>
+            ) : (
+              <>
+                <p className="text-xs font-semibold text-slate-900 dark:text-white leading-snug break-words">
+                  {regulator.name}
+                </p>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-snug break-words">
+                  {regulator.contact}
+                </p>
+                {regulator.country && (
+                  <p className="text-[11px] text-slate-500 dark:text-slate-500">
+                    {regulator.country}
+                  </p>
+                )}
+              </>
             )}
           </div>
         </div>
 
         {/* Filing Instructions */}
-        {regulator.filing_instructions && (
+        {regulator && regulator.filing_instructions && (
           <div className="flex gap-3 bg-blue-500/5 dark:bg-blue-500/10 p-4 rounded-xl border border-blue-500/20">
             <Info className="text-blue-500 shrink-0 mt-0.5" size={16} />
             <div className="space-y-1 min-w-0">

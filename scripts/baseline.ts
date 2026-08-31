@@ -25,9 +25,42 @@ Respond ONLY with a JSON object in this exact format:
   }
 }`;
 
+/**
+ * fetch with retry/backoff for transient failures only. Mirrors the helper in
+ * eval.ts (duplicated so this script stays independently runnable). Retries
+ * thrown network errors and retryable HTTP statuses (429, 5xx); does NOT retry
+ * deterministic 4xx such as 400 json_validate_failed.
+ */
+async function fetchWithRetry(
+  url: string,
+  init: RequestInit,
+  attempts = 3,
+  backoffMs = 4000
+): Promise<Response> {
+  let lastErr: unknown;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      const res = await fetch(url, init);
+      if ((res.status === 429 || res.status >= 500) && i < attempts - 1) {
+        console.warn(`Groq HTTP ${res.status}, retrying in ${backoffMs / 1000}s (attempt ${i + 1}/${attempts})...`);
+        await new Promise(r => setTimeout(r, backoffMs));
+        continue;
+      }
+      return res;
+    } catch (err) {
+      lastErr = err;
+      if (i < attempts - 1) {
+        console.warn(`Network error (${(err as Error).message}), retrying in ${backoffMs / 1000}s (attempt ${i + 1}/${attempts})...`);
+        await new Promise(r => setTimeout(r, backoffMs));
+      }
+    }
+  }
+  throw lastErr;
+}
+
 export async function runBaseline(complaintDescription: string) {
   try {
-    const response = await fetch(GROQ_API_URL!, {
+    const response = await fetchWithRetry(GROQ_API_URL!, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${GROQ_API_KEY}`,
@@ -46,6 +79,20 @@ export async function runBaseline(complaintDescription: string) {
 
     if (!response.ok) {
       const errorText = await response.text();
+      // Groq returns HTTP 400 with code "json_validate_failed" when the model's
+      // output does not conform to the requested json_object format. Report it
+      // as a recoverable per-case failure instead of throwing, so an eval run
+      // that calls this for every case is not aborted by a single bad case.
+      if (response.status === 400 && /json_validate_failed/.test(errorText)) {
+        console.warn('Groq json_validate_failed in baseline — returning empty result.');
+        return {
+          letter: null,
+          recipient: null,
+          recipient_contact: null,
+          regulator: null,
+          note: 'JSON validation failed'
+        };
+      }
       throw new Error(`Groq API error: ${response.status} ${response.statusText}\n${errorText}`);
     }
 

@@ -77,6 +77,41 @@ const GROQ_API_KEY = process.env.GROQ_API_KEY;
 // Mock the internal search functionality for the eval script
 import { searchRegulator, searchCompanyContact } from '../lib/search';
 
+/**
+ * fetch with retry/backoff for transient failures only. The network in this
+ * environment is flaky (intermittent DNS EAI_AGAIN/ENOTFOUND), so a single
+ * blip should not cost us a whole eval case. Retries thrown network errors and
+ * retryable HTTP statuses (429, 5xx). Does NOT retry deterministic 4xx such as
+ * 400 json_validate_failed — those are returned unchanged for the caller to
+ * handle, since retrying them just wastes tokens and time.
+ */
+async function fetchWithRetry(
+  url: string,
+  init: RequestInit,
+  attempts = 3,
+  backoffMs = 4000
+): Promise<Response> {
+  let lastErr: unknown;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      const res = await fetch(url, init);
+      if ((res.status === 429 || res.status >= 500) && i < attempts - 1) {
+        console.warn(`   Groq HTTP ${res.status}, retrying in ${backoffMs / 1000}s (attempt ${i + 1}/${attempts})...`);
+        await new Promise(r => setTimeout(r, backoffMs));
+        continue;
+      }
+      return res;
+    } catch (err) {
+      lastErr = err;
+      if (i < attempts - 1) {
+        console.warn(`   Network error (${(err as Error).message}), retrying in ${backoffMs / 1000}s (attempt ${i + 1}/${attempts})...`);
+        await new Promise(r => setTimeout(r, backoffMs));
+      }
+    }
+  }
+  throw lastErr;
+}
+
 async function runVerifiedRedress(complaint: any) {
   try {
     const { country, sector, description } = complaint;
@@ -116,7 +151,7 @@ STRICT RULE FOR "regulator":
 - If regulator candidates are provided, the "name" and "contact" MUST exactly match one of the candidates, or be null.
 - NEVER invent a regulator that is not in the candidate list.`;
 
-    const response = await fetch(GROQ_API_URL!, {
+    const response = await fetchWithRetry(GROQ_API_URL!, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${GROQ_API_KEY}`,
@@ -135,9 +170,23 @@ STRICT RULE FOR "regulator":
 
     if (!response.ok) {
       const errorText = await response.text();
+      // Groq returns HTTP 400 with code "json_validate_failed" when the model's
+      // output does not conform to the requested json_object format. This is a
+      // recoverable, per-case failure: mark the case unverified and keep going
+      // rather than throwing and aborting the whole eval run.
+      if (response.status === 400 && /json_validate_failed/.test(errorText)) {
+        console.warn('   Groq json_validate_failed — treating case as unverified.');
+        return {
+          regulatorName: null,
+          regulatorContact: null,
+          regulatorVerified: false,
+          candidatesCount: regulator.candidates.length,
+          note: 'JSON validation failed'
+        };
+      }
       throw new Error(`Groq API error: ${response.status} ${response.statusText}\n${errorText}`);
     }
-    
+
     const data = await response.json();
     const aiResponseContent = data.choices[0].message.content;
     const cleaned = aiResponseContent.replace(/^```json/, '').replace(/```$/, '').trim();
@@ -166,7 +215,8 @@ STRICT RULE FOR "regulator":
       regulatorName,
       regulatorContact,
       regulatorVerified,
-      candidatesCount: regulator.candidates.length
+      candidatesCount: regulator.candidates.length,
+      note: ''
     };
   } catch (error) {
     console.error('Error running verified redress:', error);
@@ -187,6 +237,9 @@ async function main() {
     if (baselineResult) {
       console.log(`   Baseline Regulator: ${baselineResult.regulator?.name || 'N/A'}`);
       console.log(`   Baseline Contact:   ${baselineResult.regulator?.contact || 'N/A'}`);
+      if (baselineResult.note) {
+        console.log(`   Baseline Note:      ${baselineResult.note}`);
+      }
     }
 
     console.log("\n-- Running Verified Redress --");
@@ -196,10 +249,14 @@ async function main() {
       console.log(`   Redress Regulator:  ${redressResult.regulatorName || 'NULL (Unverified)'}`);
       console.log(`   Redress Contact:    ${redressResult.regulatorContact || 'NULL (Unverified)'}`);
       console.log(`   Is Verified?:       ${redressResult.regulatorVerified}`);
+      if (redressResult.note) {
+        console.log(`   Redress Note:       ${redressResult.note}`);
+      }
     }
     console.log("\n-----------------------------------------\n");
-    // 4 second delay between cases to avoid rate limiting
-    await new Promise(resolve => setTimeout(resolve, 4000));
+    // 25 second delay between cases to stay under the Groq 8000 TPM limit.
+    // Each case uses ~2000-3500 tokens across the baseline + verified calls.
+    await new Promise(resolve => setTimeout(resolve, 25000));
   }
   
   console.log("Evaluation complete.");

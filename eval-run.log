@@ -1,0 +1,165 @@
+◇ injected env (0) from .env.local // tip: ⌘ enable debugging { debug: true }
+◇ injected env (7) from .env // tip: ⌘ override existing { override: true }
+◇ injected env (0) from .env.local // tip: ⌘ suppress logs { quiet: true }
+◇ injected env (0) from .env // tip: ◈ encrypted .env [www.dotenvx.com]
+Starting Evaluation Harness...
+=========================================
+
+Evaluating Case 1: United States / banking
+Description: Bank of America charged me an unexpected $35 overdraft fee even though I had overdraft protection disabled. Customer service refused to refund it.
+
+-- Running Baseline --
+(node:33944) Warning: Setting the NODE_TLS_REJECT_UNAUTHORIZED environment variable to '0' makes TLS connections and HTTPS requests insecure by disabling certificate verification.
+(Use `node --trace-warnings ...` to show where the warning was created)
+   Baseline Regulator: Consumer Financial Protection Bureau
+   Baseline Contact:   https://www.consumerfinance.gov/complaint/
+
+-- Running Verified Redress --
+   Groq json_validate_failed — treating case as unverified.
+   Candidates Found:   3
+   Redress Regulator:  NULL (Unverified)
+   Redress Contact:    NULL (Unverified)
+   Is Verified?:       false
+   Redress Note:       JSON validation failed
+
+-----------------------------------------
+
+Evaluating Case 2: United Kingdom / telecom
+Description: My Vodafone UK internet has been dropping out for the past 3 weeks. They keep promising to fix it but haven't, and they are still charging me full price.
+
+-- Running Baseline --
+   Baseline Regulator: Ofcom
+   Baseline Contact:   complaints@ofcom.org.uk
+
+-- Running Verified Redress --
+   Candidates Found:   3
+   Redress Regulator:  Telecommunications | Parliamentary and Health Service Ombudsman (PHSO)
+   Redress Contact:    https://www.ombudsman.org.uk/making-complaint/if-we-cant-help/telecommunications
+   Is Verified?:       true
+
+-----------------------------------------
+
+Evaluating Case 3: Canada / telecom
+Description: Rogers added a $15 premium channel package to my bill without my consent. I called to cancel it but the charge is still there.
+
+-- Running Baseline --
+   Baseline Regulator: Canadian Radio-television and Telecommunications Commission (CRTC)
+   Baseline Contact:   consumercomplaints@crtc.gc.ca
+
+-- Running Verified Redress --
+   Candidates Found:   3
+   Redress Regulator:  Online Complaint Form | CCTS
+   Redress Contact:    https://www.ccts-cprst.ca/for-consumers/telecom-complaints/online-complaint-form
+   Is Verified?:       true
+
+-----------------------------------------
+
+Evaluating Case 4: Nigeria / housing
+Description: My landlord in Lagos is refusing to refund my security deposit after I moved out of the apartment in good condition.
+
+-- Running Baseline --
+   Baseline Regulator: Lagos State Housing Authority
+   Baseline Contact:   info@lagos.gov.ng
+
+-- Running Verified Redress --
+   Candidates Found:   3
+   Redress Regulator:  PROCEDURE FOR LODGING CONSUMER COMPLAINTS | NCC
+   Redress Contact:    https://ncc.gov.ng/media-centre/press-releases/procedure-lodging-consumer-complaints
+   Is Verified?:       true
+
+-----------------------------------------
+
+Evaluating Case 5: India / ecommerce
+Description: I ordered a laptop on Flipkart but received a box with bricks. The seller is unresponsive and Flipkart closed my ticket.
+
+-- Running Baseline --
+   Baseline Regulator: Central Consumer Protection Authority
+   Baseline Contact:   Email: ccpa@ccpa.gov.in, Phone: 1800-121-9988
+
+-- Running Verified Redress --
+   Candidates Found:   3
+   Redress Regulator:  Contact Details | National Consumer Helpline
+   Redress Contact:    https://consumerhelpline.gov.in/public/contact
+   Is Verified?:       true
+
+-----------------------------------------
+
+Evaluating Case 6: Australia / utility
+Description: Origin Energy estimated my meter reading and overcharged me by $800. I sent a photo of the actual meter but they are threatening disconnection.
+
+-- Running Baseline --
+   Baseline Regulator: Australian Energy Regulator
+   Baseline Contact:   https://www.aer.gov.au/complaints
+Email: complaints@aer.gov.au
+
+-- Running Verified Redress --
+   Candidates Found:   3
+   Redress Regulator:  File a Complaint or Comment | Office of the Utility Consumer Advocate
+   Redress Contact:    https://uca.colorado.gov/file-a-complaint-or-comment
+   Is Verified?:       true
+
+-----------------------------------------
+
+Evaluating Case 7: South Africa / telecom
+Description: MTN South Africa keeps deducting airtime from my prepaid balance for a subscription service I never opted into.
+
+-- Running Baseline --
+   Baseline Regulator: South African Communications and Multimedia Commission (CMC)
+   Baseline Contact:   complaints@cmc.org.za
+
+-- Running Verified Redress --
+   Candidates Found:   3
+   Redress Regulator:  Consumer complaints procedure — Independent Communications Authority of South Africa
+   Redress Contact:    https://www.icasa.org.za/pages/consumer-complaints-procedure
+   Is Verified?:       true
+
+-----------------------------------------
+
+Evaluating Case 8: Ireland / banking
+Description: AIB blocked my debit card while I was traveling despite me notifying them in advance. I was stranded without funds for 3 days.
+
+-- Running Baseline --
+   Baseline Regulator: Central Bank of Ireland
+   Baseline Contact:   consumer@cbi.ie
+
+-- Running Verified Redress --
+   Candidates Found:   3
+   Redress Regulator:  Complaints Against a Financial Services Provider | Central Bank of Ireland
+   Redress Contact:    https://www.centralbank.ie/contact-us/complaints-against-a-financial-service-provider
+   Is Verified?:       true
+
+-----------------------------------------
+
+Evaluating Case 9: Singapore / housing
+Description: The managing agent of my condo is arbitrarily increasing the maintenance fee by 50% without a proper general meeting vote.
+
+-- Running Baseline --
+   Baseline Regulator: State Department of Housing and Community Development
+   Baseline Contact:   complaints@housingstate.gov
+
+-- Running Verified Redress --
+   Candidates Found:   3
+   Redress Regulator:  Submit complaint | Council for Estate Agencies
+   Redress Contact:    https://www.cea.gov.sg/submit-complaint
+   Is Verified?:       true
+
+-----------------------------------------
+
+Evaluating Case 10: New Zealand / government
+Description: Inland Revenue Department miscalculated my tax return and is now demanding a penalty for their own error.
+
+-- Running Baseline --
+   Baseline Regulator: HM Revenue & Customs (HMRC) – Taxpayer Advocate Service
+   Baseline Contact:   taxpayeradvocate@hmrc.gov.uk
+
+-- Running Verified Redress --
+   Groq json_validate_failed — treating case as unverified.
+   Candidates Found:   3
+   Redress Regulator:  NULL (Unverified)
+   Redress Contact:    NULL (Unverified)
+   Is Verified?:       false
+   Redress Note:       JSON validation failed
+
+-----------------------------------------
+
+Evaluation complete.

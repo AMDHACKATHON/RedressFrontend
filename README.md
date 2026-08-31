@@ -1,159 +1,66 @@
-# Redress — AI Complaint Resolution Agent
+# Redress — Verified Complaint Letters for Consumers
 
-> Turn your complaint into a formal letter and escalate to regulators if ignored. Any country. Any sector.
+## What this is and who it's for
 
-🔗 **Live App:** https://redressamd.vercel.app
-🤗 **HuggingFace Space:** https://huggingface.co/spaces/lablab-ai-amd-developer-hackathon/redress
+Redress is a Next.js app that turns a free-form consumer complaint ("my bank
+charged me a wrong fee", "my internet drops out and they keep billing me")
+into a formal, regulator-aware complaint letter — recipient, address, contact
+email — that a consumer can copy and send. The intended user is an everyday
+consumer in any country who has been wronged by a bank, telecom, retailer, or
+utility and doesn't know where to escalate when customer service refuses to
+help. See [micro1.md §1–2](public/docs/micro1.md) for the full problem
+statement.
 
----
+The interesting design decision — and the reason this project exists — is
+that Redress does not just ask an LLM to name the regulator. It performs a
+live Tavily web search, extracts a small set of candidate regulators from
+the search results, asks the LLM to pick from that list verbatim, and then
+checks the chosen name + contact against the candidates before returning it.
+If the verification check fails, the regulator is replaced with `null` and the
+UI shows a "we couldn't confidently verify this regulator — please review"
+warning so the consumer is never misled into writing to a fabricated agency.
 
-## What is Redress?
+## What existed before this hackathon vs. what was added
 
-Most people have a legitimate complaint against a bank, telco, utility provider, landlord, or government agency but have no idea how to formally escalate it. They either give up, send an ineffective email, or don't know which regulatory body to contact.
+**Existed before (AMD hackathon):**
+- Full Next.js app, NextAuth + Google login, MongoDB models for complaints and letters.
+- Multi-stage Understand / Draft / Escalate agent.
+- Tavily search for company contact and for regulator snippets.
+- **Verified** company-email selection with a hallucination check.
+- **Unverified** regulator selection — LLM was trusted on raw Tavily prose.
+- PDF letter generation.
 
-Redress solves that. It's an AI agent that:
-- Understands your complaint through a short conversation
-- Drafts a professionally structured complaint letter
-- Identifies the right channel and regulatory body for your country and sector
-- Generates an escalation letter to regulators if your complaint is ignored
-- Lets you download every letter as a PDF
+**New for micro1:**
+- Candidate extraction for regulator search results (mirrors the email pattern).
+- Constrained LLM selection from regulator candidates verbatim.
+- Post-hoc verification / null-fallback for the chosen regulator.
+- Human-review flag in the UI (`LetterDisplay.tsx`) when the regulator comes back unverified.
+- Standalone baseline script (`scripts/baseline.ts`) — single prompt, no tools.
+- Evaluation harness (`scripts/eval.ts`) and a 10-case test set spanning 9 countries and 6 sectors.
+- This README, [REPRODUCTION.md](REPRODUCTION.md), [eval-results.md](eval-results.md), and [TRAJECTORIES.md](TRAJECTORIES.md).
 
----
+## How the verification improvement works (plain language)
 
-## Demo
+When a user submits a complaint, Redress asks Tavily for the real regulator in
+their country and sector — for example "Australia utility regulator complaint".
+Tavily returns a list of web pages; Redress parses out the regulator names
+and contact details from those pages and shows that short list to the LLM.
+The LLM is **required** to pick one name and contact verbatim — or to return
+`null`. After the LLM answers, Redress checks whether the chosen name and
+contact appear in the candidate list. If they do, the regulator is shown to
+the user as verified. If they don't — either because the LLM invented
+something, or because the model failed to produce valid JSON — Redress hides
+the regulator and shows an amber "we couldn't verify this — please review"
+notice instead. The user gets an honest "I'm not sure" rather than a
+confident wrong answer.
 
-📺 **Demo Video:** [Watch here](https://storage.googleapis.com/lablab-video-submissions/n3v922wai9khqi5gs2jctlap/raw/submission-video-x-n3v922wai9khqi5gs2jctlap-i8whdej1c960du34gqjwmb3q_hg0b45gy6y54wfgzcdodt4g1.mp4)
+Evidence: [eval-results.md](eval-results.md). The changelog that traces each
+iteration is in [micro1.md §6](public/docs/micro1.md).
 
-![Redress Demo](./demo.gif)
+## Solution video
 
----
-
-## How It Works
-
-**Stage 1 — Understand**
-The agent asks up to 3 clarifying questions to gather the key details: organization name, nature of the issue, date it occurred, and any prior contact attempts.
-
-**Stage 2 — Draft**
-Once enough context is gathered, the agent generates a formal complaint letter with the correct recipient, recommended channel, and relevant regulatory body details.
-
-**Stage 3 — Escalate**
-If the user indicates their complaint was ignored, the agent generates an escalation letter addressed directly to the regulatory body, including step-by-step filing instructions.
-
----
-
-## Tech Stack
-
-| Layer | Technology |
-|---|---|
-| Framework | Next.js 16 App Router |
-| Language | TypeScript |
-| Styling | Tailwind CSS |
-| Auth | NextAuth.js + Google OAuth |
-| Database | MongoDB + Mongoose |
-| State Management | Zustand |
-| Web Search | Tavily |
-| PDF Generation | jsPDF |
-| Deployment | Vercel + HuggingFace Spaces |
-
-> Note: This project was built for the AMD Developer Hackathon 2026. AMD Developer Cloud credits were applied for on May 5th but were not received before the submission deadline. The agent logic is fully compatible with AMD's OpenAI-compatible API and can be switched by updating two environment variables.
-
----
-
-## Features
-
-- Email + password registration and login
-- Google OAuth
-- Create and manage multiple complaint sessions
-- Multi-turn conversational agent
-- Formal complaint letter generation
-- Regulatory body detection with live web search via Tavily
-- Escalation letter generation
-- PDF download for all letters
-- Complaint history with stage tracking
-- Admin dashboard
-- Mobile responsive
-
----
-
-## Getting Started
-
-### Prerequisites
-- Node.js 18+
-- MongoDB URI
-- Groq or AMD Developer Cloud API key
-- Tavily API key
-- Google OAuth credentials (optional)
-
-### Installation
-
-```bash
-git clone https://github.com/AMDHACKATHON/Redress
-cd Redress
-npm install
-```
-
-### Environment Variables
-
-Create a `.env.local` file in the root:
-
-```
-MONGODB_URI=
-AMD_API_KEY=
-AMD_API_URL=https://api.groq.com/openai/v1/chat/completions
-NEXTAUTH_SECRET=
-NEXTAUTH_URL=http://localhost:3000
-GOOGLE_CLIENT_ID=
-GOOGLE_CLIENT_SECRET=
-TAVILY_API_KEY=
-```
-
-### Run locally
-
-```bash
-npm run dev
-```
-
-Open `http://localhost:3000`
-
----
-
-## Project Structure
-
-```
-app/
-  (auth)/          — Login and register pages
-  (dashboard)/     — Protected dashboard, complaint chat, profile
-  admin/           — Admin dashboard
-  api/             — All API routes (auth, complaints, letters, profile)
-components/
-  letter/          — LetterDisplay, PDFDownloadButton
-lib/
-  models/          — Mongoose models
-  mongodb.ts       — DB connection
-  api.ts           — Axios instance
-  store.ts         — Zustand store
-  search.ts        — Tavily search utility
-types/
-  index.ts         — TypeScript interfaces
-```
-
----
-
-## Team
-
-| Name | Role | GitHub |
-|---|---|---|
-| Ezekiel Samuel | Lead Engineer | [@samkiell](https://github.com/samkiell) |
-| Zabdiel Anyaogu | Frontend + Demo |  [@fwesh](https://github.com/fwesh001) |
-
----
-
-## Hackathon
-
-Built for the **AMD Developer Hackathon 2026** on [lablab.ai](https://lablab.ai/ai-hackathons/amd-developer)
-Track: AI Agents & Agentic Workflows
-Prize pool: $10,000 + AMD Radeon AI PRO R9700 GPU
-
----
-
-*Redress — AMD Developer Hackathon 2026*
+The 5-minute solution video (problem → baseline → full run → comparison →
+changelog highlight → one thing tried and removed) will be added via an
+updated Drive link in [micro1.md §7](public/docs/micro1.md) before judging.
+It has not been recorded yet due to network constraints during the
+hackathon.

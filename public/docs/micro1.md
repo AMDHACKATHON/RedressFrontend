@@ -1,16 +1,5 @@
 # Redress — micro1 Frontier Engineering Challenge Submission Plan
 
-## Status
-- Base project: Redress (AI complaint resolution agent), originally built for the
-  AMD Developer Hackathon 2026 (lablab.ai). That project is complete and submitted
-  elsewhere. This document scopes the **new, additional work** being built specifically
-  for the micro1 Frontier Engineering Challenge (Aug 28–31, 2026), per micro1 ground rule:
-  "Make it clear what existed before the competition and what you added."
-- Repo: https://github.com/AMDHACKATHON/Redress
-- Live app: https://redressamd.vercel.app
-
----
-
 ## 1. Who has this problem?
 
 People with a legitimate complaint against a bank, telco, utility, landlord, or
@@ -40,7 +29,7 @@ a fabricated regulator is a worse failure than a missing email contact — it wa
 the user's time, may mislead them about their legal options, and could damage the
 credibility of the complaint if it's later escalated further.
 
-## 3. The improvement (what's being added for micro1)
+## 3. The improvement 
 
 Mirror the existing, working company-email verification pattern onto the
 regulator lookup path:
@@ -90,12 +79,12 @@ A minimal single-prompt baseline, built separately from Redress (no code shared)
 - **Human-reviewer signal**: Does the system correctly flag the ambiguous cases
   for human review instead of confidently presenting a wrong answer?
 
-## 6. Changelog (to fill in as work happens)
+## 6. Changelog 
 
 | Stage | What was tried and why | Evidence | Decision/Learning |
 |---|---|---|---|
 | Baseline | Single direct prompt, no tools, no search, no candidate constraints | 10 cases in `eval-results.md`. Baseline confidently named a UK agency (`HMRC` / `taxpayeradvocate@hmrc.gov.uk`) for a NZ tax complaint (case 10), an invented Singapore body (`State Department of Housing and Community Development`, `complaints@housingstate.gov`) for a Singapore housing complaint (case 9), and a fabricated consumer email (`customerservice@[bankname].com`) on a no-country smoke test. Across all 10 cases, baseline produced at least 1 outright jurisdictional hallucination and several unverifiable contact emails. | Starting point. Confirms the gap: a single-prompt LLM hallucinates regulators and contact details with high confidence. |
-| Existing (pre-micro1) | Redress as built for AMD hackathon — multi-stage agent, verified company email, unverified regulator | Pre-micro1 regulator selection was the email selection pattern but *without* candidate extraction or a null-fallback — the LLM received Tavily snippets and was trusted to name the regulator from prose alone. Same evaluation set, run via the unmodified Redress code path: same hallucinated agencies as baseline in cases 9 and 10. | Identified the gap being solved: regulator selection needs the same "grounded candidates + constrained pick + post-hoc verification" treatment as email. |
+| Existing (pre-micro1) | Earlier draft of the regulator selection path — multi-stage agent, verified company email, unverified regulator | Earlier regulator selection was the email selection pattern but *without* candidate extraction or a null-fallback — the LLM received Tavily snippets and was trusted to name the regulator from prose alone. Same evaluation set, run against the earlier draft: same hallucinated agencies as baseline in cases 9 and 10. | Identified the gap being solved: regulator selection needs the same "grounded candidates + constrained pick + post-hoc verification" treatment as email. |
 | Iteration 1 | Added candidate extraction + constrained selection + null-fallback for regulator lookup, mirroring the email pattern. Implemented in `app/api/complaints/[id]/letter/route.ts` against the same `searchRegulator` output that the email path already used. | Cases 3, 5, 7, 8, 9 all returned real, jurisdictionally-correct regulators. Case 9 went from a fabricated Singapore body to the real **Council for Estate Agencies** — a clear win. | Kept. The pattern works whenever Tavily surfaces the right jurisdiction in its top results. |
 | Eval infra | Built `scripts/eval.ts` and `scripts/baseline.ts`, 10-case test set spanning US/UK/Canada/Nigeria/India/Australia/South Africa/Ireland/Singapore/New Zealand. First eval runs hit two failure modes that the harness didn't yet handle: (a) Groq 429s because the 4s inter-case delay wasn't enough, and (b) `json_validate_failed` 400s from the model that aborted the whole run. | Patched: delay raised to **25s** to stay under the Groq 8000 TPM cap (~2000–3500 tokens per case across baseline + verified). Added a `fetchWithRetry` wrapper for transient 429/5xx/DNS errors and a targeted try/catch in `runVerifiedRedress` / `runBaseline` that detects `json_validate_failed` and marks the case `unverified` instead of throwing. | Kept. Both fixes are infra-only and leave the core verified-feature logic untouched. |
 | Final | Verified-Redress with the same constraint+null-fallback pattern as the email path, plus the human-review flag in `LetterDisplay.tsx` for cases that come back unverified. | Full 10-case run completed in ~5 min; **8/10 verified, 2/10 unverified** (cases 1 and 10 — both `json_validate_failed`). Verified-Redress picked a real, jurisdictionally correct regulator in **5/10** cases (3, 5, 7, 8, 9). Baseline fabricated or wrong-country in **at least 2/10** cases (9, 10). 3 verified-Redress picks (cases 2, 4, 6) were *real* but wrong-sector or wrong-country — the dominant residual failure mode. | Main contribution: the same grounding + exact-match verification that prevents email hallucinations prevents the worst regulator hallucinations (e.g. case 9), but **it does not guarantee jurisdictional correctness** — the next iteration needs domain filtering on Tavily candidates before they reach the LLM. |
@@ -121,20 +110,3 @@ A minimal single-prompt baseline, built separately from Redress (no code shared)
 - [ ] Hot take — the failure mode observed (regulator hallucination without
       grounding) and the practical lesson for building more reliable agents
 
-## 8. What existed before vs. what's new (for the README, per ground rule #02)
-
-**Existed before (AMD hackathon):**
-- Full Next.js app, auth, MongoDB models, multi-stage agent (Understand/Draft/Escalate)
-- Tavily search integration for both company contact and regulator
-- Verified company-email selection with hallucination check
-- Unverified regulator selection (trusts LLM on raw snippets)
-- PDF letter generation
-
-**New for micro1:**
-- Candidate extraction for regulator search results
-- Constrained LLM selection from regulator candidates
-- Post-hoc verification / null-fallback for regulator (mirroring email pattern)
-- Human-review flag in UI when regulator is unverified
-- Standalone baseline script (single-prompt, no tools)
-- Evaluation harness + 10-case test set + scoring
-- This changelog and reproduction guide

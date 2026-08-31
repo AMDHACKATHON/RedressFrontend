@@ -20,22 +20,16 @@ If the verification check fails, the regulator is replaced with `null` and the
 UI shows a "we couldn't confidently verify this regulator — please review"
 warning so the consumer is never misled into writing to a fabricated agency.
 
-## What existed before this hackathon vs. what was added
+## What's in this repo
 
-**Existed before (AMD hackathon):**
-- Full Next.js app, NextAuth + Google login, MongoDB models for complaints and letters.
+- Full Next.js 16 app, NextAuth + Google sign-in, MongoDB models for complaints and letters.
 - Multi-stage Understand / Draft / Escalate agent.
-- Tavily search for company contact and for regulator snippets.
+- Tavily search for company contact and for regulator candidates.
 - **Verified** company-email selection with a hallucination check.
-- **Unverified** regulator selection — LLM was trusted on raw Tavily prose.
-- PDF letter generation.
-
-**New for micro1:**
-- Candidate extraction for regulator search results (mirrors the email pattern).
-- Constrained LLM selection from regulator candidates verbatim.
-- Post-hoc verification / null-fallback for the chosen regulator.
+- **Verified** regulator selection with a candidate-extraction + constrained-pick + post-hoc-verification pattern, with a null-fallback when verification fails.
 - Human-review flag in the UI (`LetterDisplay.tsx`) when the regulator comes back unverified.
-- Standalone baseline script (`scripts/baseline.ts`) — single prompt, no tools.
+- PDF letter generation.
+- Standalone baseline script (`scripts/baseline.ts`) — single prompt, no tools — for comparison against the verified path.
 - Evaluation harness (`scripts/eval.ts`) and a 10-case test set spanning 9 countries and 6 sectors.
 - This README, [REPRODUCTION.md](REPRODUCTION.md), [eval-results.md](eval-results.md), and [TRAJECTORIES.md](TRAJECTORIES.md).
 

@@ -19,8 +19,8 @@ dev tools including `tsx` (via `npx`).
 ## 2. Environment variables
 
 Create a file named `.env` in the repo root with the following keys. The
-code reads these exact names — the old `AMD_*` names from the previous
-hackathon's README are stale.
+code reads these exact names — see the **API keys** section in the README
+if you're unsure where to obtain any of them.
 
 ```env
 # AI & Search APIs (required for the letter generator and the eval)
@@ -83,7 +83,7 @@ npx tsx scripts/baseline.ts "Your bank charged you a $35 fee without authorizati
 **Expected output:** a JSON object printed to stdout with `letter`,
 `recipient`, `recipient_contact`, and `regulator: { name, contact }`. The
 baseline deliberately has no search and no candidate constraint — its
-hallucinations are the baseline failure mode that micro1's verified path is
+hallucinations are the baseline failure mode that the verified path is
 designed to prevent. Try several complaints from different countries and
 notice that the baseline confidently names regulators for jurisdictions it
 has no information about (e.g. it will name a UK agency for a Singapore

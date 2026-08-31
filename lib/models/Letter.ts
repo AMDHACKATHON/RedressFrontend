@@ -6,9 +6,10 @@ export interface ILetter extends Document {
   recipient: string;
   recipientContact: string | null;
   channel: string;
-  regulatorName: string;
-  regulatorContact: string;
-  regulatorCountry: string;
+  regulatorName: string | null;
+  regulatorContact: string | null;
+  regulatorCountry: string | null;
+  regulatorVerified: boolean;
   createdAt: Date;
 }
 
@@ -37,15 +38,19 @@ const LetterSchema = new Schema<ILetter>({
   },
   regulatorName: {
     type: String,
-    required: [true, 'Regulator name is required'],
+    default: null,
   },
   regulatorContact: {
     type: String,
-    required: [true, 'Regulator contact is required'],
+    default: null,
   },
   regulatorCountry: {
     type: String,
-    required: [true, 'Regulator country is required'],
+    default: null,
+  },
+  regulatorVerified: {
+    type: Boolean,
+    default: true,
   },
   createdAt: {
     type: Date,

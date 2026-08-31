@@ -3,9 +3,10 @@ import mongoose, { Schema, Document } from 'mongoose';
 export interface IEscalationLetter extends Document {
   complaintId: mongoose.Types.ObjectId;
   escalationLetter: string;
-  regulatorName: string;
-  regulatorContact: string;
-  filingInstructions: string;
+  regulatorName: string | null;
+  regulatorContact: string | null;
+  filingInstructions: string | null;
+  regulatorVerified: boolean;
   createdAt: Date;
 }
 
@@ -22,15 +23,19 @@ const EscalationLetterSchema = new Schema<IEscalationLetter>({
   },
   regulatorName: {
     type: String,
-    required: [true, 'Regulator name is required'],
+    default: null,
   },
   regulatorContact: {
     type: String,
-    required: [true, 'Regulator contact is required'],
+    default: null,
   },
   filingInstructions: {
     type: String,
-    required: [true, 'Filing instructions are required'],
+    default: null,
+  },
+  regulatorVerified: {
+    type: Boolean,
+    default: true,
   },
   createdAt: {
     type: Date,
